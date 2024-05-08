@@ -1,5 +1,1 @@
-[
-  { "key": "user_2", "data": { "name": "John Doe", "age": 25 } },
-  { "key": "user_1", "data": { "name": "John Doe", "age": 25 } },
-  { "key": "user_3", "data": { "name": "John Doe", "age": 25 } }
-]
+[{"key":"1","data":{"name":"John Doe"}}]

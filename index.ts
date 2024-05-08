@@ -33,7 +33,7 @@ interface JsonResponse {
 }
 
 const server = net.createServer((socket) => {
-  console.log("New user connected!");
+  console.log("New user connected from: " + socket.remoteAddress + ":" + socket.remotePort);
 
   socket.on("data", async (data) => {
     const start = Date.now();
@@ -58,6 +58,7 @@ const server = net.createServer((socket) => {
           case "GET": {
             if (!parsedMessage.commands?.get) return socket.write("[ERROR] Missing commands.get");
             if (!parsedMessage.commands.get.key) return socket.write("[ERROR] Missing commands.get.key");
+            if (typeof parsedMessage.commands.get.key !== "string") return socket.write("[ERROR] key is not a string");
 
             // Check if file exist
             if (!fs.existsSync(`${volume}/${parsedMessage.collection}.json`))
@@ -75,6 +76,7 @@ const server = net.createServer((socket) => {
               if (json.length === 0) return socket.write(JSON.stringify([]));
 
               const results = [];
+              const notFound = false;
 
               // Loop the keys
               for (const val of json) {
@@ -84,6 +86,8 @@ const server = net.createServer((socket) => {
                 // @ts-ignore
                 results.push(val.data);
               }
+
+              if (notFound) return socket.write(`[ERROR] key ${parsedMessage.commands.get.key} does not exist`);
 
               return socket.write(JSON.stringify(results[0]));
             } catch (error) {
@@ -97,6 +101,8 @@ const server = net.createServer((socket) => {
           case "DELETE": {
             if (!parsedMessage.commands?.delete) return socket.write("[ERROR] Missing commands.delete");
             if (!parsedMessage.commands.delete.key) return socket.write("[ERROR] Missing commands.delete.key");
+            if (typeof parsedMessage.commands.delete.key !== "string")
+              return socket.write("[ERROR] key is not a string");
 
             // Check if file exist
             if (!fs.existsSync(`${volume}/${parsedMessage.collection}.json`))
@@ -114,13 +120,24 @@ const server = net.createServer((socket) => {
               if (json.length === 0) return socket.write(JSON.stringify([]));
 
               // Loop the keys
-              for (const val of json) {
-                if (!val.key) continue;
-                if (val.key !== parsedMessage.commands.delete.key) continue;
+              // for (const val of json) {
+              //   console.log(val.key);
 
-                // @ts-ignore
-                const newData = json.filter((v) => v.key !== val.key);
-                await Bun.write(`${volume}/${parsedMessage.collection}.json`, newData);
+              //   if (val.key === parsedMessage.commands.delete.key) {
+              //     // @ts-ignore
+              //     const newData = json.pop(val);
+              //     await Bun.write(`${volume}/${parsedMessage.collection}.json`, newData);
+              //   } else {
+              //     return socket.write(`[ERROR] key ${parsedMessage.commands.delete.key} does not exist`);
+              //   }
+              // }
+
+              for (const val of json) {
+                if (!parsedMessage.commands.delete.key || val.key !== parsedMessage.commands.delete.key) continue;
+
+                // Remove the key
+                json.splice(json.indexOf(val), 1);
+                await Bun.write(`${volume}/${parsedMessage.collection}.json`, JSON.stringify(json));
               }
 
               return socket.write(JSON.stringify({ success: true }));
@@ -214,22 +231,13 @@ const server = net.createServer((socket) => {
 });
 
 server.listen(Number(env.PORT), () => {
+  // Check if volume exist
+  if (!fs.existsSync(volume)) {
+    console.log("Volume does not exist at: " + volume);
+    process.exit(1);
+  }
+
   console.log("Volume path: " + volume);
   console.log("Server is running on port: " + env.PORT);
   console.log("Ready to accept connections");
 });
-
-/// Client
-const db = new FlickClient({ port: 8000, host: "localhost" });
-
-db.connect().then(() => {
-  console.log("Connected to database");
-});
-
-// const newUser = await db.set("users", "user_3", { name: "John Doe", age: 25 });
-
-// const user = await db.get("users", "user_3");
-// console.log(user);
-
-// const user = await db.get("users", "user_1");
-// console.log(user);

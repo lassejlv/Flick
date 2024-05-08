@@ -75,8 +75,14 @@ class FlickClient {
 
             if (command.command === "PING") {
               resolve(JSON.parse(message));
-            } else {
-              resolve(message);
+            }
+
+            // Check if it can parse the data to json
+            try {
+              const parsed = JSON.parse(message);
+              resolve(parsed);
+            } catch (error) {
+              reject(error);
             }
           });
         })
