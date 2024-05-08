@@ -1,8 +1,18 @@
 import * as net from "net";
 import fs from "fs";
 import FlickClient from "./client";
+import { createEnv } from "@t3-oss/env-core";
+import { z } from "zod";
 
-const volume = "/Users/lasse/Documents/dev/Flick/data";
+const env = createEnv({
+  server: {
+    PORT: z.string(),
+    VOLUME: z.string(),
+  },
+  runtimeEnv: process.env,
+});
+
+const volume = env.VOLUME;
 
 interface JsonResponse {
   type: "COMMAND";
@@ -17,7 +27,7 @@ interface JsonResponse {
     };
     set?: {
       key: string;
-      data: object;
+      data: any;
     };
   };
 }
@@ -126,45 +136,53 @@ const server = net.createServer((socket) => {
             if (!parsedMessage.commands?.set) return socket.write("[ERROR] Missing commands.set");
             if (!parsedMessage.commands.set.key) return socket.write("[ERROR] Missing commands.delete.key");
             if (!parsedMessage.commands.set.data) return socket.write("[ERROR] Missing commands.delete.data");
-
-            // @ts-ignore
-            const parsedJson = JSON.parse(parsedMessage.commands.set.data);
-
-            if (typeof parsedJson !== "object") return socket.write("[ERROR] commands.set.data is not an object");
+            if (typeof parsedMessage.commands.set.data !== "object")
+              return socket.write("[ERROR] data is not an object");
 
             // Check if file exist
             if (!fs.existsSync(`${volume}/${parsedMessage.collection}.json`))
               return socket.write("[ERROR] collection " + parsedMessage.collection + " does not exist");
 
-            console.log(parsedJson);
-
-            // Get the json
             try {
-              // Get the json
-              const json = await Bun.file(`${volume}/${parsedMessage.collection}.json`).json();
+              const data = parsedMessage.commands.set.data;
+              const pathTo = `${volume}/${parsedMessage.collection}.json`;
+
+              const json = await Bun.file(pathTo).json();
 
               // Check if its an array
               if (!Array.isArray(json)) return socket.write(`[ERROR] ${parsedMessage.collection} is not an array`);
 
-              // Check if res is 0
-              if (json.length === 0) return socket.write(JSON.stringify([]));
+              // If no data
+              if (json.length === 0) {
+                json.push({
+                  key: parsedMessage.commands.set.key,
+                  data: data,
+                });
 
-              console.log(json);
+                // Convert json array to string before writing
+                await Bun.write(pathTo, JSON.stringify(json));
+              }
 
-              // // Loop the keys
-              // for (const val of json) {
-              //   if (!val.key) continue;
-              //   if (val.key !== parsedMessage.commands.set.key) continue;
+              for (const val of json) {
+                // If the value already exist update the data
+                if (val.key === parsedMessage.commands.set.key) {
+                  val.data = data;
+                  await Bun.write(pathTo, JSON.stringify(json));
+                }
 
-              //   // @ts-ignore
-              //   val.data = parsedMessage.commands.set.data;
-              //   await Bun.write(`${volume}/${parsedMessage.collection}.json`, json);
-              // }
+                // If the key does not exist
+                if (val.key !== parsedMessage.commands.set.key) {
+                  json.push({
+                    key: parsedMessage.commands.set.key,
+                    data: data,
+                  });
 
-              return socket.write(JSON.stringify({ success: true }));
+                  await Bun.write(pathTo, JSON.stringify(json));
+                }
+
+                return socket.write(JSON.stringify({ success: true }));
+              }
             } catch (error) {
-              console.log(error);
-
               socket.write(`[ERROR] ${error.message}`);
             }
 
@@ -195,15 +213,23 @@ const server = net.createServer((socket) => {
   });
 });
 
-server.listen(8000, () => {
-  console.log("Started on port 8000");
+server.listen(Number(env.PORT), () => {
+  console.log("Volume path: " + volume);
+  console.log("Server is running on port: " + env.PORT);
+  console.log("Ready to accept connections");
 });
 
 /// Client
 const db = new FlickClient({ port: 8000, host: "localhost" });
 
-db.connect();
+db.connect().then(() => {
+  console.log("Connected to database");
+});
 
-const ping = await db.ping();
+// const newUser = await db.set("users", "user_3", { name: "John Doe", age: 25 });
 
-console.log(ping);
+// const user = await db.get("users", "user_3");
+// console.log(user);
+
+// const user = await db.get("users", "user_1");
+// console.log(user);

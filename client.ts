@@ -42,13 +42,18 @@ class FlickClient {
     });
   }
 
+  checkError = async (message: string) => {
+    if (message.includes("[ERROR]")) {
+      throw new Error(message);
+    }
+  };
+
   connect(): Promise<void> {
     return new Promise((resolve, reject) => {
       if (this.connected) {
         resolve();
       } else {
         this.client.connect(this.options, () => {
-          console.log("Connected to database");
           this.connected = true;
           resolve();
         });
@@ -64,6 +69,9 @@ class FlickClient {
           this.client.write(JSON.stringify(command));
           this.client.once("data", (data) => {
             const message = data.toString();
+
+            // Check for any errors
+            this.checkError(message);
 
             if (command.command === "PING") {
               resolve(JSON.parse(message));
@@ -97,12 +105,12 @@ class FlickClient {
     return this.sendCommand(command);
   }
 
-  set(collection: string, key: string, json_data: any): Promise<string> {
+  set(collection: string, key: string, data: any): Promise<string> {
     const command: FlickCommand = {
       type: "COMMAND",
       command: "SET",
       collection: collection,
-      commands: { set: { key: key, data: json_data } },
+      commands: { set: { key: key, data } },
     };
 
     return this.sendCommand(command);
