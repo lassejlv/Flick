@@ -8,8 +8,8 @@ interface FlickOptions {
 interface FlickCommand {
   type: "COMMAND";
   command: "GET" | "SET" | "DELETE" | "PING";
-  collection: string;
-  commands: {
+  collection?: string;
+  commands?: {
     get?: {
       key: string;
     };
@@ -18,7 +18,7 @@ interface FlickCommand {
     };
     set?: {
       key: string;
-      data: object;
+      data: any;
     };
   };
 }
@@ -63,7 +63,13 @@ class FlickClient {
         .then(() => {
           this.client.write(JSON.stringify(command));
           this.client.once("data", (data) => {
-            resolve(data.toString());
+            const message = data.toString();
+
+            if (command.command === "PING") {
+              resolve(JSON.parse(message));
+            } else {
+              resolve(message);
+            }
           });
         })
         .catch(reject);
@@ -91,12 +97,21 @@ class FlickClient {
     return this.sendCommand(command);
   }
 
-  set(collection: string, key: string, json_data: object): Promise<string> {
+  set(collection: string, key: string, json_data: any): Promise<string> {
     const command: FlickCommand = {
       type: "COMMAND",
       command: "SET",
       collection: collection,
-      commands: { set: { key: key, data: JSON.stringify(json_data) } },
+      commands: { set: { key: key, data: json_data } },
+    };
+
+    return this.sendCommand(command);
+  }
+
+  ping(): Promise<string> {
+    const command: FlickCommand = {
+      type: "COMMAND",
+      command: "PING",
     };
 
     return this.sendCommand(command);

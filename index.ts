@@ -35,7 +35,8 @@ const server = net.createServer((socket) => {
       // Valdidate the response
       if (!parsedMessage.type) return socket.write("[ERROR] Missing Type");
       if (parsedMessage.type !== "COMMAND") return socket.write("[ERROR] Not a valid type");
-      if (!parsedMessage.collection) return socket.write("[ERROR] None provided collection");
+      if (!parsedMessage.collection && parsedMessage.command !== "PING")
+        return socket.write("[ERROR] None provided collection");
 
       // Check volume path
       if (!fs.existsSync(volume)) return socket.write("[ERROR] volume does not exist at ...");
@@ -125,12 +126,17 @@ const server = net.createServer((socket) => {
             if (!parsedMessage.commands?.set) return socket.write("[ERROR] Missing commands.set");
             if (!parsedMessage.commands.set.key) return socket.write("[ERROR] Missing commands.delete.key");
             if (!parsedMessage.commands.set.data) return socket.write("[ERROR] Missing commands.delete.data");
-            if (typeof parsedMessage.commands.set.data !== "object")
-              return socket.write("[ERROR] commands.set.data is not an object");
+
+            // @ts-ignore
+            const parsedJson = JSON.parse(parsedMessage.commands.set.data);
+
+            if (typeof parsedJson !== "object") return socket.write("[ERROR] commands.set.data is not an object");
 
             // Check if file exist
             if (!fs.existsSync(`${volume}/${parsedMessage.collection}.json`))
               return socket.write("[ERROR] collection " + parsedMessage.collection + " does not exist");
+
+            console.log(parsedJson);
 
             // Get the json
             try {
@@ -143,18 +149,22 @@ const server = net.createServer((socket) => {
               // Check if res is 0
               if (json.length === 0) return socket.write(JSON.stringify([]));
 
-              // Loop the keys
-              for (const val of json) {
-                if (!val.key) continue;
-                if (val.key !== parsedMessage.commands.set.key) continue;
+              console.log(json);
 
-                // @ts-ignore
-                val.data = parsedMessage.commands.set.data;
-                await Bun.write(`${volume}/${parsedMessage.collection}.json`, json);
-              }
+              // // Loop the keys
+              // for (const val of json) {
+              //   if (!val.key) continue;
+              //   if (val.key !== parsedMessage.commands.set.key) continue;
+
+              //   // @ts-ignore
+              //   val.data = parsedMessage.commands.set.data;
+              //   await Bun.write(`${volume}/${parsedMessage.collection}.json`, json);
+              // }
 
               return socket.write(JSON.stringify({ success: true }));
             } catch (error) {
+              console.log(error);
+
               socket.write(`[ERROR] ${error.message}`);
             }
 
@@ -164,7 +174,7 @@ const server = net.createServer((socket) => {
           // PING
           case "PING": {
             const ms = start - Date.now();
-            socket.write(`Pong! In ${ms.toFixed(10)}ms`);
+            socket.write(`{"type": "ms", "time": "${ms.toFixed(10)}"}`);
             break;
           }
 
@@ -194,6 +204,6 @@ const db = new FlickClient({ port: 8000, host: "localhost" });
 
 db.connect();
 
-db.set("users", "lasse", { name: "Lasse", age: 20, email: "vestergaardlasse2@gmail.com" }).then((res) => {
-  console.log(res);
-});
+const ping = await db.ping();
+
+console.log(ping);
