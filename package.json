@@ -1,5 +1,7 @@
 {
   "name": "flick",
+  "description": "Flick is a key-value database designed to serve as a primary datastore.",
+  "version": "0.1.1",
   "scripts": {
     "compile:lin": "bun build --compile --minify --target=bun-linux-x64 index.ts --outfile build/flick",
     "compile:win": "bun build --compile --minify --target=bun-windows-x64 index.ts --outfile build/flick",
