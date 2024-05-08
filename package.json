@@ -1,7 +1,10 @@
 {
   "name": "flick",
   "scripts": {
-    "compile": "bun build --compile --minify index.ts --outfile build/flick"
+    "compile:lin": "bun build --compile --minify --target=bun-linux-x64 index.ts --outfile build/flick",
+    "compile:win": "bun build --compile --minify --target=bun-windows-x64 index.ts --outfile build/flick",
+    "compile:mac": "bun build --compile --minify --target=bun-darwin-arm64 index.ts --outfile build/flick",
+    "compile:all": "bun run compile:lin && bun run compile:win && bun run compile:mac"
   },
   "devDependencies": {
     "@types/bun": "^1.1.1",
@@ -9,6 +12,7 @@
     "typescript": "^5.4.5"
   },
   "dependencies": {
+    "flick": ".",
     "net": "^1.0.2",
     "zod": "^3.23.7"
   }
