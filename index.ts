@@ -1,6 +1,5 @@
 import * as net from "net";
 import fs from "fs";
-import FlickClient from "./client";
 import { createEnv } from "@t3-oss/env-core";
 import { z } from "zod";
 
@@ -8,6 +7,8 @@ const env = createEnv({
   server: {
     PORT: z.string(),
     VOLUME: z.string(),
+    USERNAME: z.string().optional(),
+    PASSWORD: z.string().optional(),
   },
   runtimeEnv: process.env,
 });
@@ -15,9 +16,13 @@ const env = createEnv({
 const volume = env.VOLUME;
 
 interface JsonResponse {
-  type: "COMMAND";
-  command?: "GET" | "DELETE" | "SET" | "PING";
+  type: "COMMAND" | "AUTH";
+  command?: "GET" | "DELETE" | "SET" | "PING" | "CREATE_COLLECTION" | "DELETE_COLLECTION";
   collection?: string;
+  auth?: {
+    username: string;
+    password: string;
+  };
   commands?: {
     get?: {
       key: string;
@@ -28,6 +33,12 @@ interface JsonResponse {
     set?: {
       key: string;
       data: any;
+    };
+    create_collection?: {
+      name: string;
+    };
+    delete_collection?: {
+      name: string;
     };
   };
 }
@@ -42,10 +53,41 @@ const server = net.createServer((socket) => {
     try {
       const parsedMessage = JSON.parse(message) as JsonResponse;
 
+      // Check if there is a login
+      if (env.USERNAME && env.PASSWORD) {
+        console.log("Auth Required!");
+
+        const username = parsedMessage.auth?.username;
+        const password = parsedMessage.auth?.password;
+
+        if (parsedMessage.type !== "AUTH") return;
+
+        if (!username) {
+          socket.write("[ERROR] Missing auth.username");
+          socket.end();
+          return;
+        } else if (!password) {
+          socket.write("[ERROR] Missing auth.password");
+          socket.end();
+          return;
+        }
+
+        if (username !== env.USERNAME && password !== env.PASSWORD) {
+          socket.write("[ERROR] Invalid auth options provided");
+          socket.end();
+          return;
+        }
+      }
+
       // Valdidate the response
       if (!parsedMessage.type) return socket.write("[ERROR] Missing Type");
       if (parsedMessage.type !== "COMMAND") return socket.write("[ERROR] Not a valid type");
-      if (!parsedMessage.collection && parsedMessage.command !== "PING")
+      if (
+        !parsedMessage.collection &&
+        parsedMessage.command !== "PING" &&
+        parsedMessage.command !== "CREATE_COLLECTION" &&
+        parsedMessage.command !== "DELETE_COLLECTION"
+      )
         return socket.write("[ERROR] None provided collection");
 
       // Check volume path
@@ -118,19 +160,6 @@ const server = net.createServer((socket) => {
 
               // Check if res is 0
               if (json.length === 0) return socket.write(JSON.stringify([]));
-
-              // Loop the keys
-              // for (const val of json) {
-              //   console.log(val.key);
-
-              //   if (val.key === parsedMessage.commands.delete.key) {
-              //     // @ts-ignore
-              //     const newData = json.pop(val);
-              //     await Bun.write(`${volume}/${parsedMessage.collection}.json`, newData);
-              //   } else {
-              //     return socket.write(`[ERROR] key ${parsedMessage.commands.delete.key} does not exist`);
-              //   }
-              // }
 
               for (const val of json) {
                 if (!parsedMessage.commands.delete.key || val.key !== parsedMessage.commands.delete.key) continue;
@@ -210,6 +239,40 @@ const server = net.createServer((socket) => {
           case "PING": {
             const ms = start - Date.now();
             socket.write(`{"type": "ms", "time": "${ms.toFixed(10)}"}`);
+            break;
+          }
+
+          // prettier-ignore
+          case "CREATE_COLLECTION": {
+            if (!parsedMessage.commands?.create_collection) return socket.write("[ERROR] Missing commands.create_collection");
+            if (!parsedMessage.commands.create_collection.name) return socket.write("[ERROR] Missing commands.create_collection.name");
+            if (typeof parsedMessage.commands.create_collection.name !== "string") return socket.write("[ERROR] name is not a string");
+
+
+            // If the collection already exist
+            if (fs.existsSync(`${volume}/${parsedMessage.commands.create_collection.name}.json`)) return socket.write("[ERROR] collection already exist")
+              
+            await Bun.write(`${volume}/${parsedMessage.commands.create_collection.name}.json`, JSON.stringify([]))
+
+            return socket.write(JSON.stringify({ success: true }));
+
+            break;
+          }
+
+          // prettier-ignore
+          case "DELETE_COLLECTION": {
+            if (!parsedMessage.commands?.delete_collection) return socket.write("[ERROR] Missing commands.delete_collection");
+            if (!parsedMessage.commands.delete_collection.name) return socket.write("[ERROR] Missing commands.delete_collection.name");
+            if (typeof parsedMessage.commands.delete_collection.name !== "string") return socket.write("[ERROR] name is not a string");
+
+
+            // If the collection already exist
+            if (!fs.existsSync(`${volume}/${parsedMessage.commands.delete_collection.name}.json`)) return socket.write("[ERROR] collection does not exist")
+              
+            await fs.unlinkSync(`${volume}/${parsedMessage.commands.delete_collection.name}.json`)
+
+            return socket.write(JSON.stringify({ success: true }));
+
             break;
           }
 

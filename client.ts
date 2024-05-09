@@ -3,12 +3,20 @@ import * as net from "net";
 interface FlickOptions {
   port: number;
   host: string;
+  auth: {
+    user: string;
+    password: string;
+  };
 }
 
 interface FlickCommand {
-  type: "COMMAND";
-  command: "GET" | "SET" | "DELETE" | "PING";
+  type: "COMMAND" | "AUTH";
+  command: "GET" | "DELETE" | "SET" | "PING" | "CREATE_COLLECTION" | "DELETE_COLLECTION";
   collection?: string;
+  auth?: {
+    user: string;
+    password: string;
+  };
   commands?: {
     get?: {
       key: string;
@@ -20,10 +28,16 @@ interface FlickCommand {
       key: string;
       data: any;
     };
+    create_collection?: {
+      name: string;
+    };
+    delete_collection?: {
+      name: string;
+    };
   };
 }
 
-class FlickClient {
+export class FlickClient {
   private client: net.Socket;
   private connected: boolean;
 
@@ -82,6 +96,8 @@ class FlickClient {
               const parsed = JSON.parse(message);
               resolve(parsed);
             } catch (error) {
+              if (error.message.includes("JSON")) reject();
+
               reject(error);
             }
           });
@@ -126,6 +142,26 @@ class FlickClient {
     const command: FlickCommand = {
       type: "COMMAND",
       command: "PING",
+    };
+
+    return this.sendCommand(command);
+  }
+
+  createCollection(name: string) {
+    const command: FlickCommand = {
+      type: "COMMAND",
+      command: "CREATE_COLLECTION",
+      commands: { create_collection: { name } },
+    };
+
+    return this.sendCommand(command);
+  }
+
+  deleteCollection(name: string) {
+    const command: FlickCommand = {
+      type: "COMMAND",
+      command: "DELETE_COLLECTION",
+      commands: { delete_collection: { name } },
     };
 
     return this.sendCommand(command);
