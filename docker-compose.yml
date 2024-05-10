@@ -4,6 +4,7 @@ services:
   app:
     build: .
     volumes:
-      - /mnt/c/Users/veste/OneDrive/Dokumenter/dev/flick/data:/app/data
+      # Volume from my local machine
+      - /Users/lasse/Documents/dev/Flick/data:/app
     ports:
-      - "8080:8080"  # Adjust if necessary
+      - "8080:8080"

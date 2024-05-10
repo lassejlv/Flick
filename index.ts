@@ -2,6 +2,7 @@ import * as net from "net";
 import fs from "fs";
 import { createEnv } from "@t3-oss/env-core";
 import { z } from "zod";
+import { FlickCommand } from "./client";
 
 const env = createEnv({
   server: {
@@ -15,34 +16,6 @@ const env = createEnv({
 
 const volume = env.VOLUME;
 
-interface JsonResponse {
-  type: "COMMAND" | "AUTH";
-  command?: "GET" | "DELETE" | "SET" | "PING" | "CREATE_COLLECTION" | "DELETE_COLLECTION";
-  collection?: string;
-  auth?: {
-    username: string;
-    password: string;
-  };
-  commands?: {
-    get?: {
-      key: string;
-    };
-    delete?: {
-      key: string;
-    };
-    set?: {
-      key: string;
-      data: any;
-    };
-    create_collection?: {
-      name: string;
-    };
-    delete_collection?: {
-      name: string;
-    };
-  };
-}
-
 const server = net.createServer((socket) => {
   console.log("New user connected from: " + socket.remoteAddress + ":" + socket.remotePort);
 
@@ -51,33 +24,7 @@ const server = net.createServer((socket) => {
     const message = data.toString();
 
     try {
-      const parsedMessage = JSON.parse(message) as JsonResponse;
-
-      // Check if there is a login
-      if (env.USERNAME && env.PASSWORD) {
-        console.log("Auth Required!");
-
-        const username = parsedMessage.auth?.username;
-        const password = parsedMessage.auth?.password;
-
-        if (parsedMessage.type !== "AUTH") return;
-
-        if (!username) {
-          socket.write("[ERROR] Missing auth.username");
-          socket.end();
-          return;
-        } else if (!password) {
-          socket.write("[ERROR] Missing auth.password");
-          socket.end();
-          return;
-        }
-
-        if (username !== env.USERNAME && password !== env.PASSWORD) {
-          socket.write("[ERROR] Invalid auth options provided");
-          socket.end();
-          return;
-        }
-      }
+      const parsedMessage = JSON.parse(message) as FlickCommand;
 
       // Valdidate the response
       if (!parsedMessage.type) return socket.write("[ERROR] Missing Type");
@@ -134,6 +81,49 @@ const server = net.createServer((socket) => {
               return socket.write(JSON.stringify(results[0]));
             } catch (error) {
               socket.write(`[ERROR] ${error.message}`);
+            }
+
+            break;
+          }
+
+          case "GET_MANY": {
+            if (!parsedMessage.commands?.get_many) return socket.write("[ERROR] Missing commands.get_many");
+
+            // Check if file exist
+            const limit = parsedMessage.commands.get_many.limit || 10;
+            const keys = parsedMessage.commands.get_many.keys || [];
+
+            if (!fs.existsSync(`${volume}/${parsedMessage.collection}.json`))
+              return socket.write("[ERROR] collection " + parsedMessage.collection + " does not exist");
+
+            // Get the json
+            try {
+              // Get the json
+              const json = await Bun.file(`${volume}/${parsedMessage.collection}.json`).json();
+
+              // Check if its an array
+              if (!Array.isArray(json)) return socket.write(`[ERROR] ${parsedMessage.collection} is not an array`);
+
+              // Check if res is 0
+              if (json.length === 0) return socket.write(JSON.stringify([]));
+
+              const results = [];
+              const notFound = false;
+
+              // Loop the keys
+              for (const val of json) {
+                if (!val.key) continue;
+                if (!keys.includes(val.key)) continue;
+
+                // @ts-ignore
+                results.push(val.data);
+              }
+
+              if (notFound) return socket.write(`[ERROR] key ${parsedMessage.commands.get_many.keys} does not exist`);
+
+              return socket.write(JSON.stringify(results));
+            } catch (error) {
+              return socket.write(`[ERROR] ${error.message}`);
             }
 
             break;

@@ -9,6 +9,8 @@
     "compile:all": "bun run compile:lin && bun run compile:win && bun run compile:mac"
   },
   "devDependencies": {
+    "@faker-js/faker": "^8.4.1",
+    "@fakerjs/faker": "^3.0.0",
     "@types/bun": "^1.1.1",
     "bun-types": "^1.1.7",
     "typescript": "^5.4.5"

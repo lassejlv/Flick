@@ -1,17 +1,14 @@
 import * as net from "net";
+import EventMitter from "events";
 
 interface FlickOptions {
   port: number;
   host: string;
-  auth: {
-    user: string;
-    password: string;
-  };
 }
 
-interface FlickCommand {
+export interface FlickCommand {
   type: "COMMAND" | "AUTH";
-  command: "GET" | "DELETE" | "SET" | "PING" | "CREATE_COLLECTION" | "DELETE_COLLECTION";
+  command: "GET" | "GET_MANY" | "DELETE" | "SET" | "PING" | "CREATE_COLLECTION" | "DELETE_COLLECTION";
   collection?: string;
   auth?: {
     user: string;
@@ -33,6 +30,10 @@ interface FlickCommand {
     };
     delete_collection?: {
       name: string;
+    };
+    get_many?: {
+      keys?: string[];
+      limit?: number;
     };
   };
 }
@@ -116,6 +117,17 @@ export class FlickClient {
     return this.sendCommand(command);
   }
 
+  getMany(collection: string, keys: string[]): Promise<string> {
+    const command: FlickCommand = {
+      type: "COMMAND",
+      command: "GET_MANY",
+      collection: collection,
+      commands: { get_many: { keys: keys } },
+    };
+
+    return this.sendCommand(command);
+  }
+
   delete(collection: string, key: string): Promise<string> {
     const command: FlickCommand = {
       type: "COMMAND",
@@ -167,10 +179,17 @@ export class FlickClient {
     return this.sendCommand(command);
   }
 
+  // Evenet Emitter
+  on(event: string, listener: (...args: any[]) => void) {
+    EventMitter.prototype.on(event, listener);
+  }
+
   // Implement other methods similarly
 
   close(): void {
     this.client.end();
+    this.connected = false;
+    EventMitter.prototype.emit("close");
   }
 }
 
