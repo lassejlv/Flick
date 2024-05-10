@@ -1,13 +1,12 @@
 import * as net from "net";
-import EventMitter from "events";
 
-interface FlickOptions {
+export interface FlickOptions {
   port: number;
   host: string;
 }
 
 export interface FlickCommand {
-  type: "COMMAND" | "AUTH";
+  type: "COMMAND";
   command: "GET" | "GET_MANY" | "DELETE" | "SET" | "PING" | "CREATE_COLLECTION" | "DELETE_COLLECTION";
   collection?: string;
   auth?: {
@@ -96,7 +95,7 @@ export class FlickClient {
             try {
               const parsed = JSON.parse(message);
               resolve(parsed);
-            } catch (error) {
+            } catch (error: any) {
               if (error.message.includes("JSON")) reject();
 
               reject(error);
@@ -179,18 +178,10 @@ export class FlickClient {
     return this.sendCommand(command);
   }
 
-  // Evenet Emitter
-  on(event: string, listener: (...args: any[]) => void) {
-    EventMitter.prototype.on(event, listener);
-  }
-
   // Implement other methods similarly
 
   close(): void {
     this.client.end();
     this.connected = false;
-    EventMitter.prototype.emit("close");
   }
 }
-
-export default FlickClient;

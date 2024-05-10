@@ -1,13 +1,10 @@
-import { FlickClient } from "./client";
 import { performance } from "perf_hooks";
+import { FlickClient } from "flickdb";
 
 const client = new FlickClient({
   port: 8000,
-  host: "localhost",
+  host: "109.199.110.22",
 });
-
-const newUser = await client.get("users", "lasse");
-console.log(newUser);
 
 async function benchmarkDatabase() {
   await client.connect();

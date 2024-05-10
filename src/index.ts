@@ -2,7 +2,7 @@ import * as net from "net";
 import fs from "fs";
 import { createEnv } from "@t3-oss/env-core";
 import { z } from "zod";
-import { FlickCommand } from "./client";
+import { FlickCommand } from "../sdk/javascript/client";
 
 const env = createEnv({
   server: {
