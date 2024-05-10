@@ -7,7 +7,16 @@ export interface FlickOptions {
 
 export interface FlickCommand {
   type: "COMMAND";
-  command: "GET" | "GET_MANY" | "DELETE" | "SET" | "PING" | "CREATE_COLLECTION" | "DELETE_COLLECTION";
+  command:
+    | "GET"
+    | "GET_MANY"
+    | "GET_ALL"
+    | "DELETE"
+    | "SET"
+    | "PING"
+    | "CREATE_COLLECTION"
+    | "DELETE_COLLECTION"
+    | "LIST_COLLECTIONS";
   collection?: string;
   auth?: {
     user: string;
@@ -32,6 +41,9 @@ export interface FlickCommand {
     };
     get_many?: {
       keys?: string[];
+      limit?: number;
+    };
+    get_all?: {
       limit?: number;
     };
   };
@@ -106,7 +118,7 @@ export class FlickClient {
     });
   }
 
-  get(collection: string, key: string): Promise<string> {
+  get(collection: string, key: string) {
     const command: FlickCommand = {
       type: "COMMAND",
       command: "GET",
@@ -116,12 +128,27 @@ export class FlickClient {
     return this.sendCommand(command);
   }
 
-  getMany(collection: string, keys: string[]): Promise<string> {
+  getMany(collection: string, keys: string[]) {
     const command: FlickCommand = {
       type: "COMMAND",
       command: "GET_MANY",
       collection: collection,
       commands: { get_many: { keys: keys } },
+    };
+
+    return this.sendCommand(command);
+  }
+
+  getAll(collection: string, limit?: number) {
+    const command: FlickCommand = {
+      type: "COMMAND",
+      command: "GET_ALL",
+      collection: collection,
+      commands: {
+        get_all: {
+          limit,
+        },
+      },
     };
 
     return this.sendCommand(command);
@@ -138,7 +165,7 @@ export class FlickClient {
     return this.sendCommand(command);
   }
 
-  set(collection: string, key: string, data: any): Promise<string> {
+  set(collection: string, key: string, data: any) {
     const command: FlickCommand = {
       type: "COMMAND",
       command: "SET",
@@ -149,7 +176,7 @@ export class FlickClient {
     return this.sendCommand(command);
   }
 
-  ping(): Promise<string> {
+  ping() {
     const command: FlickCommand = {
       type: "COMMAND",
       command: "PING",
@@ -173,6 +200,15 @@ export class FlickClient {
       type: "COMMAND",
       command: "DELETE_COLLECTION",
       commands: { delete_collection: { name } },
+    };
+
+    return this.sendCommand(command);
+  }
+
+  listCollections() {
+    const command: FlickCommand = {
+      type: "COMMAND",
+      command: "LIST_COLLECTIONS",
     };
 
     return this.sendCommand(command);

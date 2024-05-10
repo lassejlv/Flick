@@ -6,26 +6,34 @@ const client = new FlickClient({
   host: "109.199.110.22",
 });
 
-async function benchmarkDatabase() {
-  await client.connect();
+client.connect().then(() => {
   console.log("Connected to database!");
+});
 
-  let totalDuration = 0;
-  let requestCount = Number(prompt("How many requests do you want to make?"));
+client.listCollections().then((collections) => {
+  console.log("Collections:", collections);
+});
 
-  for (let i = 0; i < requestCount; i++) {
-    const startTime = performance.now();
-    const user = await client.get("users", "lasse"); // Assuming 'get' returns a promise
-    const endTime = performance.now();
+// async function benchmarkDatabase() {
+//   await client.connect();
+//   console.log("Connected to database!");
 
-    const duration = endTime - startTime;
-    totalDuration += duration;
+//   let totalDuration = 0;
+//   let requestCount = Number(prompt("How many requests do you want to make?"));
 
-    console.log(`Request ${i}: ${duration.toFixed(2)} ms`);
-  }
+//   for (let i = 0; i < requestCount; i++) {
+//     const startTime = performance.now();
+//     const user = await client.get("users", "lasse"); // Assuming 'get' returns a promise
+//     const endTime = performance.now();
 
-  console.log(`Average request time: ${(totalDuration / requestCount).toFixed(2)} ms`);
-  console.log(`Total time for ${requestCount} requests: ${totalDuration.toFixed(2)} ms`);
-}
+//     const duration = endTime - startTime;
+//     totalDuration += duration;
 
-benchmarkDatabase();
+//     console.log(`Request ${i}: ${duration.toFixed(2)} ms`);
+//   }
+
+//   console.log(`Average request time: ${(totalDuration / requestCount).toFixed(2)} ms`);
+//   console.log(`Total time for ${requestCount} requests: ${totalDuration.toFixed(2)} ms`);
+// }
+
+// benchmarkDatabase();

@@ -76,6 +76,19 @@ class FlickClient {
     };
     return this.sendCommand(command);
   }
+  getAll(collection, limit) {
+    const command = {
+      type: "COMMAND",
+      command: "GET_ALL",
+      collection,
+      commands: {
+        get_all: {
+          limit
+        }
+      }
+    };
+    return this.sendCommand(command);
+  }
   delete(collection, key) {
     const command = {
       type: "COMMAND",
@@ -117,13 +130,18 @@ class FlickClient {
     };
     return this.sendCommand(command);
   }
+  listCollections() {
+    const command = {
+      type: "COMMAND",
+      command: "LIST_COLLECTIONS"
+    };
+    return this.sendCommand(command);
+  }
   close() {
     this.client.end();
     this.connected = false;
   }
 }
-var client_default = FlickClient;
 export {
-  client_default as default,
   FlickClient
 };

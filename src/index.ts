@@ -33,7 +33,8 @@ const server = net.createServer((socket) => {
         !parsedMessage.collection &&
         parsedMessage.command !== "PING" &&
         parsedMessage.command !== "CREATE_COLLECTION" &&
-        parsedMessage.command !== "DELETE_COLLECTION"
+        parsedMessage.command !== "DELETE_COLLECTION" &&
+        parsedMessage.command !== "LIST_COLLECTIONS"
       )
         return socket.write("[ERROR] None provided collection");
 
@@ -80,17 +81,21 @@ const server = net.createServer((socket) => {
 
               return socket.write(JSON.stringify(results[0]));
             } catch (error) {
+              if (error.message.includes("Received undefined")) {
+                return socket.write(`[ERROR] key ${parsedMessage.commands.get.key} does not exist`);
+              }
+
               socket.write(`[ERROR] ${error.message}`);
             }
 
             break;
           }
 
+          // Get multiple
           case "GET_MANY": {
             if (!parsedMessage.commands?.get_many) return socket.write("[ERROR] Missing commands.get_many");
 
             // Check if file exist
-            const limit = parsedMessage.commands.get_many.limit || 10;
             const keys = parsedMessage.commands.get_many.keys || [];
 
             if (!fs.existsSync(`${volume}/${parsedMessage.collection}.json`))
@@ -127,6 +132,42 @@ const server = net.createServer((socket) => {
             }
 
             break;
+          }
+
+          // GET all with a custom limit
+          case "GET_ALL": {
+            if (!parsedMessage.commands?.get_all) return socket.write("[ERROR] Missing commands.get_all");
+
+            const limit = parsedMessage.commands.get_all.limit || 75;
+
+            // Check if file exist
+            if (!fs.existsSync(`${volume}/${parsedMessage.collection}.json`))
+              return socket.write("[ERROR] collection " + parsedMessage.collection + " does not exist");
+
+            // Get the json
+            try {
+              const json = await Bun.file(`${volume}/${parsedMessage.collection}.json`).json();
+
+              // Check if its an array
+              if (!Array.isArray(json)) return socket.write(`[ERROR] ${parsedMessage.collection} is not an array`);
+
+              // Check if res is 0
+              if (json.length === 0) return socket.write(JSON.stringify([]));
+
+              const results = [];
+
+              // Loop the keys
+              for (const val of json) {
+                if (!val.key) continue;
+
+                // @ts-ignore
+                results.push(val.data);
+              }
+
+              return socket.write(JSON.stringify(results.slice(0, limit)));
+            } catch (error) {
+              return socket.write(`[ERROR] ${error.message}`);
+            }
           }
 
           // DELETE
@@ -264,6 +305,27 @@ const server = net.createServer((socket) => {
             return socket.write(JSON.stringify({ success: true }));
 
             break;
+          }
+
+          case "LIST_COLLECTIONS": {
+            const collections = fs.readdirSync(volume).filter((file) => file.endsWith(".json"));
+
+            // Remove the .json from the file
+            const clean = collections.map((file) => file.replace(".json", ""));
+
+            function getCollectionSizeInMb(collection: string) {
+              return fs.statSync(`${volume}/${collection}.json`).size / 1024 / 1024;
+            }
+
+            const jsonReturn = clean.map((collection) => {
+              return {
+                name: collection,
+                sizeInMb: getCollectionSizeInMb(collection).toFixed(2),
+                sizeInBytes: fs.statSync(`${volume}/${collection}.json`).size,
+              };
+            });
+
+            return socket.write(JSON.stringify(jsonReturn));
           }
 
           // IF command does not exist
