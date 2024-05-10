@@ -3,7 +3,7 @@ import { FlickClient } from "flickdb";
 
 const client = new FlickClient({
   port: 8000,
-  host: "109.199.110.22",
+  host: "localhost",
 });
 
 client.connect().then(() => {
