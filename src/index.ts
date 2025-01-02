@@ -7,14 +7,14 @@ import { FlickCommand } from "../sdk/javascript/client";
 const env = createEnv({
   server: {
     PORT: z.string(),
-    VOLUME: z.string(),
+    STORE: z.string(),
     USERNAME: z.string().optional(),
     PASSWORD: z.string().optional(),
   },
   runtimeEnv: process.env,
 });
 
-const volume = env.VOLUME;
+const volume = env.STORE;
 
 const server = net.createServer((socket) => {
   console.log("New user connected from: " + socket.remoteAddress + ":" + socket.remotePort);
