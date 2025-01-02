@@ -19,9 +19,5 @@ WORKDIR /app/FlickProject
 RUN bun upgrade
 RUN bun install
 RUN bun build --compile --minify src/index.ts --outfile db-server
-
-# Define a volume mount point
-VOLUME /tmp/root/flickdata-path
-
 # Command to run the application
 CMD ["./db-server"]
